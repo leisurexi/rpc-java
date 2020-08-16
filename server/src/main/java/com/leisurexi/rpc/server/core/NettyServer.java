@@ -1,9 +1,9 @@
-package com.leisurexi.rpc.server;
+package com.leisurexi.rpc.server.core;
 
 import com.leisurexi.rpc.common.codec.*;
 import com.leisurexi.rpc.common.registry.Registry;
 import com.leisurexi.rpc.common.serializer.Serializer;
-import com.leisurexi.rpc.common.util.ThreadPoolUtils;
+import com.leisurexi.rpc.common.util.ServiceKeyUtils;
 import com.leisurexi.rpc.registry.zk.ZookeeperRegistry;
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.ChannelFuture;
@@ -17,9 +17,10 @@ import io.netty.handler.codec.LengthFieldBasedFrameDecoder;
 import io.netty.handler.timeout.IdleStateHandler;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -34,11 +35,6 @@ public class NettyServer implements Server {
     private ExecutorService executorService;
 
     /**
-     * 服务名称
-     */
-    private final String serviceName;
-
-    /**
      * 服务地址
      */
     private final String serverAddress;
@@ -48,17 +44,36 @@ public class NettyServer implements Server {
      */
     private final Registry registry;
 
-    public NettyServer(String serviceName, String serverAddress, String registryAddress) {
-        this.serviceName = serviceName;
+    /**
+     * 服务 Map
+     */
+    private Map<String, Object> serviceMap;
+
+    public NettyServer(String serverAddress, String registryAddress) {
+        this.serviceMap = new HashMap<>();
         this.serverAddress = serverAddress;
         this.registry = new ZookeeperRegistry(registryAddress);
+        this.registry.init();
+        this.registry.start();
+    }
+
+    /**
+     * 添加服务
+     *
+     * @param interfaceName 接口名称
+     * @param version       版本号
+     * @param serviceBean   bean 实例
+     */
+    public void addService(String interfaceName, String version, Object serviceBean) {
+        log.info("Add service, interface: [{}]，version: [{}]，bean: [{}]", interfaceName, version, serviceBean);
+        String serviceKey = ServiceKeyUtils.buildServiceKey(interfaceName, version);
+        serviceMap.put(serviceKey, serviceBean);
     }
 
     @Override
     public synchronized void start() {
         if (executorService == null) {
             executorService = Executors.newSingleThreadExecutor();
-            ThreadPoolExecutor threadPool = ThreadPoolUtils.createThreadPool(NettyServer.class.getSimpleName(), 10, 20);
             executorService.execute(() -> {
                 EventLoopGroup bossGroup = new NioEventLoopGroup(1);
                 EventLoopGroup workerGroup = new NioEventLoopGroup();
@@ -76,8 +91,7 @@ public class NettyServer implements Server {
                                             .addLast(new LengthFieldBasedFrameDecoder(Integer.MAX_VALUE, 0, 4, 0, 0))
                                             .addLast(new RpcDecoder(RpcRequest.class, serializer))
                                             .addLast(new RpcEncoder(RpcResponse.class, serializer))
-                                            .addLast();
-
+                                            .addLast(new RpcServerHandler(serviceMap));
                                 }
                             });
                     String[] inetAddress = serverAddress.split(":");
@@ -85,18 +99,20 @@ public class NettyServer implements Server {
                     int port = Integer.parseInt(inetAddress[1]);
                     ChannelFuture future = bootstrap.bind(host, port).sync();
                     // 向注册中心注册
-                    registry.register(serviceName, serverAddress);
+                    registry.register(serverAddress, serviceMap);
                     log.info("Server started on port {}", port);
                     future.channel().closeFuture().sync();
                 } catch (Exception e) {
                     if (e instanceof InterruptedException) {
-                        log.info("Rpc server remoting server stop.");
+                        log.error("Rpc server remoting server stop.");
                     } else {
-                        log.info("Rpc server remoting server error.");
+                        log.error("Rpc server remoting server error.", e);
                     }
                 } finally {
                     bossGroup.shutdownGracefully();
                     workerGroup.shutdownGracefully();
+                    // 取消注册
+                    registry.unRegister(serverAddress, serviceMap);
                 }
             });
         } else {

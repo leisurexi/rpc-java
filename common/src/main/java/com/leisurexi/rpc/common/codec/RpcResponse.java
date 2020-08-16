@@ -28,4 +28,8 @@ public class RpcResponse implements Serializable {
      */
     private Object result;
 
+    public boolean isError() {
+        return this.error != null;
+    }
+
 }

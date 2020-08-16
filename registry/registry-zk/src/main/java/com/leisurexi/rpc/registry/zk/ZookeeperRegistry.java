@@ -1,18 +1,24 @@
 package com.leisurexi.rpc.registry.zk;
 
+import com.leisurexi.rpc.common.protocol.RpcProtocol;
 import com.leisurexi.rpc.common.registry.Registry;
 import com.leisurexi.rpc.common.util.RegistryUtils;
+import com.leisurexi.rpc.common.util.ServiceKeyUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.curator.framework.CuratorFramework;
 import org.apache.curator.framework.CuratorFrameworkFactory;
 import org.apache.curator.framework.imps.CuratorFrameworkState;
 import org.apache.curator.retry.RetryNTimes;
 import org.apache.zookeeper.CreateMode;
+import org.apache.zookeeper.KeeperException;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * Zookeeper 服务注册中心实现
@@ -89,29 +95,69 @@ public class ZookeeperRegistry implements Registry {
     }
 
     @Override
-    public void register(String serviceName, String addr) {
-        // 注册服务节点
-        String providerPath = RegistryUtils.buildProviderPath(ZookeeperConstant.ZK_REGISTRY_PATH, serviceName);
-        try {
-            zkClient.create().creatingParentContainersIfNeeded()
-                    .withMode(CreateMode.EPHEMERAL)
-                    .forPath(providerPath + addr, PROVIDER_ONLINE);
-            log.info("Zookeeper [{}] 服务注册，地址: [{}]", serviceName, addr);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
+    public void register(String addr, Map<String, Object> serviceMap) {
+        if (!CollectionUtils.isEmpty(serviceMap)) {
+            serviceMap.forEach((serviceKey, obj) -> {
+                try {
+                    String[] inetAddress = addr.split(":");
+                    String[] serviceInfo = serviceKey.split(ServiceKeyUtils.SERVICE_CONCAT_TOKEN);
+                    // 服务节点地址
+                    String providerPath = RegistryUtils.buildProviderPath(ZookeeperConstant.ZK_REGISTRY_PATH, serviceInfo[0]);
+                    RpcProtocol rpcProtocol = RpcProtocol.builder()
+                            .uuid(UUID.randomUUID().toString())
+                            .host(inetAddress[0])
+                            .port(Integer.parseInt(inetAddress[1]))
+                            .serviceName(serviceInfo[0])
+                            .version(serviceInfo[1])
+                            .build();
+                    zkClient.create().creatingParentContainersIfNeeded()
+                            .withMode(CreateMode.EPHEMERAL)
+                            .forPath(providerPath + "/" + rpcProtocol.hashCode(), rpcProtocol.toJsonString().getBytes());
+                    log.info("Zookeeper [{}] 服务注册，地址: [{}]", serviceKey, addr);
+                } catch (KeeperException.NodeExistsException e) {
+                    // ignore
+                } catch (Exception e) {
+                    log.error(e.getMessage(), e);
+                }
+            });
         }
     }
 
     @Override
-    public String discovery(String serviceName) {
+    public void unRegister(String addr, Map<String, Object> serviceMap) {
+        if (!CollectionUtils.isEmpty(serviceMap)) {
+            serviceMap.forEach((serviceKey, obj) -> {
+                String providerPath = RegistryUtils.buildProviderPath(ZookeeperConstant.ZK_REGISTRY_PATH, serviceKey);
+                try {
+                    zkClient.delete().forPath(providerPath + addr);
+                    log.info("Zookeeper [{}]，地址: [{}]，服务取消注册", serviceKey, addr);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            });
+        }
+    }
+
+    @Override
+    public List<RpcProtocol> discovery(String serviceName) {
         String providerPath = RegistryUtils.buildProviderPath(ZookeeperConstant.ZK_REGISTRY_PATH, serviceName);
         try {
             // 获取所有的服务提供者 url 列表
-            List<String> providers = zkClient.getChildren().forPath(providerPath);
-            if (CollectionUtils.isEmpty(providers)) {
+            List<String> nodeList = zkClient.getChildren().forPath(providerPath);
+            if (CollectionUtils.isEmpty(nodeList)) {
                 throw new IllegalStateException("No provider for " + serviceName);
             }
-            return providers.get(0);
+            List<RpcProtocol> serverList = nodeList.stream().map(nodeName -> {
+                try {
+                    byte[] bytes = zkClient.getData().forPath(providerPath + "/" + nodeName);
+                    String json = new String(bytes);
+                    RpcProtocol rpcProtocol = RpcProtocol.fromJson(json);
+                    return rpcProtocol;
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+            }).collect(Collectors.toList());
+            return serverList;
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -119,7 +165,9 @@ public class ZookeeperRegistry implements Registry {
 
     @Override
     public void destroy() {
-        zkClient.close();
+        if (zkClient != null) {
+            zkClient.close();
+        }
     }
 
 }

@@ -2,6 +2,10 @@ package com.leisurexi.rpc.common.registry;
 
 import com.leisurexi.rpc.common.base.Destroyable;
 import com.leisurexi.rpc.common.base.Initializeable;
+import com.leisurexi.rpc.common.protocol.RpcProtocol;
+
+import java.util.List;
+import java.util.Map;
 
 /**
  * @author: leisurexi
@@ -17,10 +21,18 @@ public interface Registry extends Initializeable, Destroyable {
     /**
      * 注册服务提供者
      *
-     * @param serviceName 服务名称
-     * @param addr        服务地址
+     * @param addr       服务地址
+     * @param serviceMap 服务Map
      */
-    void register(String serviceName, String addr);
+    void register(String addr, Map<String, Object> serviceMap);
+
+    /**
+     * 取消注册服务
+     *
+     * @param addr       服务地址
+     * @param serviceMap 服务Map
+     */
+    void unRegister(String addr, Map<String, Object> serviceMap);
 
     /**
      * 根据服务名称查找服务地址
@@ -28,6 +40,6 @@ public interface Registry extends Initializeable, Destroyable {
      * @param serviceName 服务名称
      * @return 服务地址
      */
-    String discovery(String serviceName);
+    List<RpcProtocol> discovery(String serviceName);
 
 }

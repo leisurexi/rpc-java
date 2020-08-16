@@ -22,6 +22,6 @@ public @interface RpcService {
     Class<?> value();
 
     /** 版本号 */
-    String version() default "";
+    String version() default "0.0.1";
 
 }

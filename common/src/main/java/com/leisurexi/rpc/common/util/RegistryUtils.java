@@ -12,7 +12,7 @@ public class RegistryUtils {
      * 构建服务提供者地址
      */
     public static String buildProviderPath(String rootPath, String serviceName) {
-        return rootPath + "/rpc/" + serviceName + "/providers/";
+        return rootPath + "/rpc/" + serviceName + "/providers";
     }
 
     /**

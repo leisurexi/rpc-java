@@ -1,7 +1,10 @@
 package com.leisurexi.rpc.common.protocol;
 
 import com.leisurexi.rpc.common.util.JsonUtils;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.util.Objects;
 
@@ -10,13 +13,16 @@ import java.util.Objects;
  * @date: 2020-08-13 9:44 上午
  */
 @Data
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
 public class RpcProtocol {
 
     /** 唯一id */
     private String uuid;
-    /** 客户端host */
+    /** 服务地址 */
     private String host;
-    /** 客户端ip */
+    /** 服务ip */
     private int port;
     /** 接口名称 */
     private String serviceName;

@@ -1,4 +1,4 @@
-package com.leisurexi.rpc.server;
+package com.leisurexi.rpc.server.core;
 
 /**
  * Server SPI
