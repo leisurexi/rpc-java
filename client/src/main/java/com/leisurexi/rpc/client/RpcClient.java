@@ -3,7 +3,7 @@ package com.leisurexi.rpc.client;
 import com.leisurexi.rpc.client.connect.ConnectionManager;
 import com.leisurexi.rpc.client.proxy.ObjectProxy;
 import com.leisurexi.rpc.client.proxy.RpcService;
-import com.leisurexi.rpc.common.protocol.RpcProtocol;
+import com.leisurexi.rpc.common.client.ProviderInfo;
 import com.leisurexi.rpc.common.registry.Registry;
 import com.leisurexi.rpc.common.util.ThreadPoolUtils;
 
@@ -29,7 +29,7 @@ public class RpcClient {
     }
 
     public <T> T createService(Class<T> interfaceClass, String version) {
-        List<RpcProtocol> serverList = registry.discovery(interfaceClass.getName());
+        List<ProviderInfo> serverList = registry.discovery(interfaceClass.getName());
         ConnectionManager.getInstance().updateConnectedServer(serverList);
         return (T) Proxy.newProxyInstance(
                 interfaceClass.getClassLoader(),

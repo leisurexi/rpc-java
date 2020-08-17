@@ -18,6 +18,9 @@ public interface ZookeeperConstant {
      */
     int ZK_CONNECTION_TIMEOUT = 5000;
 
-    String ZK_REGISTRY_PATH = "/registry";
+    /**
+     * 根路径
+     */
+    String ZK_REGISTER_PATH = "/leisurexi-rpc";
 
 }

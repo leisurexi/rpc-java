@@ -3,8 +3,10 @@ package com.leisurexi.rpc.client.connect;
 import com.leisurexi.rpc.client.proxy.RpcClientHandler;
 import com.leisurexi.rpc.client.route.RpcLoadBalance;
 import com.leisurexi.rpc.client.route.impl.RpcLoadBalanceRoundRobin;
-import com.leisurexi.rpc.common.codec.*;
+import com.leisurexi.rpc.common.base.Destroyable;
 import com.leisurexi.rpc.common.client.ProviderInfo;
+import com.leisurexi.rpc.common.codec.*;
+import com.leisurexi.rpc.common.listener.ProviderInfoListener;
 import com.leisurexi.rpc.common.serializer.Serializer;
 import com.leisurexi.rpc.common.util.ThreadPoolUtils;
 import io.netty.bootstrap.Bootstrap;
@@ -32,13 +34,11 @@ import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 /**
- * RPC Connection Manager
- *
  * @author: leisurexi
- * @date: 2020-08-15 11:33 下午
+ * @date: 2020-08-17 5:21 下午
  */
 @Slf4j
-public class ConnectionManager {
+public class ConnectionHolder implements ProviderInfoListener, Destroyable {
 
     private EventLoopGroup eventLoopGroup = new NioEventLoopGroup(4);
     private static ThreadPoolExecutor threadPoolExecutor = ThreadPoolUtils.createThreadPool("connection", 4, 8);
@@ -49,17 +49,16 @@ public class ConnectionManager {
     private Condition connected = lock.newCondition();
     private long waitTimeout = 5000;
     private RpcLoadBalance loadBalance = new RpcLoadBalanceRoundRobin();
-    private volatile boolean isRunning = true;
 
-    private ConnectionManager() {
+    private ConnectionHolder() {
     }
 
     private static class SingletonHolder {
-        private static final ConnectionManager INSTANCE = new ConnectionManager();
+        private static final ConnectionHolder INSTANCE = new ConnectionHolder();
     }
 
-    public static ConnectionManager getInstance() {
-        return SingletonHolder.INSTANCE;
+    public static ConnectionHolder getInstance() {
+        return ConnectionHolder.SingletonHolder.INSTANCE;
     }
 
     public void updateConnectedServer(List<ProviderInfo> serverList) {
@@ -166,7 +165,7 @@ public class ConnectionManager {
 
     public RpcClientHandler chooseHandler(String serviceKey) throws Exception {
         int size = connectedServerNodes.values().size();
-        while (isRunning && size <= 0) {
+        while (size <= 0) {
             try {
                 waitingForHandler();
                 size = connectedServerNodes.values().size();
@@ -189,8 +188,8 @@ public class ConnectionManager {
         }
     }
 
-    public void stop() {
-        isRunning = false;
+    @Override
+    public void destroy() {
         for (ProviderInfo providerInfo : providerInfoSet) {
             RpcClientHandler handler = connectedServerNodes.get(providerInfo);
             if (handler != null) {
@@ -202,6 +201,29 @@ public class ConnectionManager {
         signalAvailableHandler();
         threadPoolExecutor.shutdown();
         eventLoopGroup.shutdownGracefully();
+    }
+
+    @Override
+    public void addProvider(ProviderInfo providerInfo) {
+        if (providerInfo != null) {
+            providerInfoSet.add(providerInfo);
+            connectServerNode(providerInfo);
+        }
+    }
+
+    @Override
+    public void removeProvider(ProviderInfo providerInfo) {
+        if (providerInfo != null) {
+            connectedServerNodes.remove(providerInfo);
+            providerInfoSet.remove(providerInfo);
+        }
+    }
+
+    @Override
+    public void updateProvider(List<ProviderInfo> providerInfoList) {
+        if (!CollectionUtils.isEmpty(providerInfoList)) {
+            updateConnectedServer(providerInfoList);
+        }
     }
 
 }

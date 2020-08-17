@@ -5,7 +5,7 @@ import com.leisurexi.rpc.client.handler.RpcFuture;
 import com.leisurexi.rpc.common.codec.HeartBeat;
 import com.leisurexi.rpc.common.codec.RpcRequest;
 import com.leisurexi.rpc.common.codec.RpcResponse;
-import com.leisurexi.rpc.common.protocol.RpcProtocol;
+import com.leisurexi.rpc.common.client.ProviderInfo;
 import io.netty.buffer.Unpooled;
 import io.netty.channel.*;
 import io.netty.handler.timeout.IdleStateEvent;
@@ -25,7 +25,7 @@ public class RpcClientHandler extends SimpleChannelInboundHandler<RpcResponse> {
     private ConcurrentMap<String, RpcFuture> pendingRpc = new ConcurrentHashMap<>();
     private volatile Channel channel;
     private SocketAddress remotePeer;
-    private RpcProtocol rpcProtocol;
+    private ProviderInfo providerInfo;
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -91,10 +91,10 @@ public class RpcClientHandler extends SimpleChannelInboundHandler<RpcResponse> {
     @Override
     public void channelInactive(ChannelHandlerContext ctx) throws Exception {
         super.channelInactive(ctx);
-        ConnectionManager.getInstance().removeHandler(rpcProtocol);
+        ConnectionManager.getInstance().removeHandler(providerInfo);
     }
 
-    public void setRpcProtocol(RpcProtocol rpcProtocol) {
-        this.rpcProtocol = rpcProtocol;
+    public void setProviderInfo(ProviderInfo providerInfo) {
+        this.providerInfo = providerInfo;
     }
 }

@@ -11,7 +11,8 @@ import com.leisurexi.rpc.test.service.impl.HelloServiceImpl;
 public class QuickStartServer {
 
     public static void main(String[] args) {
-        String serverAddress = "127.0.0.1:18000";
+        String port = args[0];
+        String serverAddress = "127.0.0.1:" + port;
         String registerAddress = "123.57.155.136:2181";
         RpcServer server = new RpcServer(serverAddress, registerAddress);
         HelloService helloService = new HelloServiceImpl();

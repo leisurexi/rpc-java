@@ -8,18 +8,20 @@ package com.leisurexi.rpc.common.util;
  */
 public class RegistryUtils {
 
+    public static final String CONTEXT_SEP = "/";
+
     /**
      * 构建服务提供者地址
      */
     public static String buildProviderPath(String rootPath, String serviceName) {
-        return rootPath + "/rpc/" + serviceName + "/providers";
+        return rootPath + "/" + serviceName + "/providers";
     }
 
     /**
      * 构建服务消费者地址
      */
     public static String buildConsumerPath(String rootPath, String serviceName) {
-        return rootPath + "/rpc/" + serviceName + "/consumers/";
+        return rootPath + "/" + serviceName + "/consumers";
     }
 
 }

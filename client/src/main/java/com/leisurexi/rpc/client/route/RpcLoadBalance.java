@@ -1,7 +1,7 @@
 package com.leisurexi.rpc.client.route;
 
 import com.leisurexi.rpc.client.proxy.RpcClientHandler;
-import com.leisurexi.rpc.common.protocol.RpcProtocol;
+import com.leisurexi.rpc.common.client.ProviderInfo;
 import com.leisurexi.rpc.common.util.ServiceKeyUtils;
 import org.springframework.util.CollectionUtils;
 
@@ -24,16 +24,16 @@ public abstract class RpcLoadBalance {
      * @param connectedServerNodes 已经跟服务端连接的节点
      * @return
      */
-    protected Map<String, List<RpcProtocol>> getServiceMap(Map<RpcProtocol, RpcClientHandler> connectedServerNodes) {
-        Map<String, List<RpcProtocol>> serviceMap = new HashMap<>();
+    protected Map<String, List<ProviderInfo>> getServiceMap(Map<ProviderInfo, RpcClientHandler> connectedServerNodes) {
+        Map<String, List<ProviderInfo>> serviceMap = new HashMap<>();
         if (connectedServerNodes != null && connectedServerNodes.size() > 0) {
-            for (RpcProtocol rpcProtocol : connectedServerNodes.keySet()) {
-                String serviceKey = ServiceKeyUtils.buildServiceKey(rpcProtocol.getServiceName(), rpcProtocol.getVersion());
-                List<RpcProtocol> protocolList = serviceMap.get(serviceKey);
+            for (ProviderInfo providerInfo : connectedServerNodes.keySet()) {
+                String serviceKey = ServiceKeyUtils.buildServiceKey(providerInfo.getServiceName(), providerInfo.getVersion());
+                List<ProviderInfo> protocolList = serviceMap.get(serviceKey);
                 if (CollectionUtils.isEmpty(protocolList)) {
                     protocolList = new ArrayList<>();
                 }
-                protocolList.add(rpcProtocol);
+                protocolList.add(providerInfo);
                 serviceMap.putIfAbsent(serviceKey, protocolList);
             }
         }
@@ -48,6 +48,6 @@ public abstract class RpcLoadBalance {
      * @return 服务端连接信息
      * @throws Exception
      */
-    public abstract RpcProtocol select(String serviceKey, Map<RpcProtocol, RpcClientHandler> connectedServerNodes) throws Exception;
+    public abstract ProviderInfo select(String serviceKey, Map<ProviderInfo, RpcClientHandler> connectedServerNodes) throws Exception;
 
 }
